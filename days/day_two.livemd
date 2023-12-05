@@ -1,0 +1,242 @@
+# Day Two
+
+## Utiliies
+
+```elixir
+defmodule Utilities do
+  @moduledoc """
+  Provides utility functions to be used across days
+  """
+
+  def read_data(day) do
+    day_as_string =
+      day
+      |> Integer.to_string()
+      |> String.pad_leading(2, "0")
+
+    Path.join(__DIR__, "../data/day_#{day_as_string}_input.txt")
+    |> Path.expand()
+    |> File.read!()
+  end
+
+  def to_list(big_string) do
+    String.split(big_string, "\n")
+  end
+end
+```
+
+## Day 2: Cube Conundrum
+
+You're launched high into the atmosphere! The apex of your trajectory just barely reaches the surface of a large island floating in the sky. You gently land in a fluffy pile of leaves. It's quite cold, but you don't see much snow. An Elf runs over to greet you.
+
+The Elf explains that you've arrived at Snow Island and apologizes for the lack of snow. He'll be happy to explain the situation, but it's a bit of a walk, so you have some time. They don't get many visitors up here; would you like to play a game in the meantime?
+
+As you walk, the Elf shows you a small bag and some cubes which are either red, green, or blue. Each time you play this game, he will hide a secret number of cubes of each color in the bag, and your goal is to figure out information about the number of cubes.
+
+To get information, once a bag has been loaded with cubes, the Elf will reach into the bag, grab a handful of random cubes, show them to you, and then put them back in the bag. He'll do this a few times per game.
+
+You play several games and record the information from each game (your puzzle input). Each game is listed with its ID number (like the 11 in Game 11: ...) followed by a semicolon-separated list of subsets of cubes that were revealed from the bag (like 3 red, 5 green, 4 blue).
+
+For example, the record of a few games might look like this:
+
+```
+Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
+```
+
+In game 1, three sets of cubes are revealed from the bag (and then put back again). The first set is 3 blue cubes and 4 red cubes; the second set is 1 red cube, 2 green cubes, and 6 blue cubes; the third set is only 2 green cubes.
+
+The Elf would first like to know which games would have been possible if the bag contained only:
+`12 red cubes, 13 green cubes, and 14 blue cubes`?
+
+In the example above, games 1, 2, and 5 would have been possible if the bag had been loaded with that configuration. However, game 3 would have been impossible because at one point the Elf showed you 20 red cubes at once; similarly, game 4 would also have been impossible because the Elf showed you 15 blue cubes at once. If you add up the IDs of the games that would have been possible, you get 8.
+
+Determine which games would have been possible if the bag had been loaded with only 12 red cubes, 13 green cubes, and 14 blue cubes. What is the sum of the IDs of those games?
+
+<!-- livebook:{"break_markdown":true} -->
+
+### PART TWO
+
+The Elf says they've stopped producing snow because they aren't getting any water! He isn't sure why the water stopped; however, he can show you how to get to the water source to check it out for yourself. It's just up ahead!
+
+As you continue your walk, the Elf poses a second question: in each game you played, what is the fewest number of cubes of each color that could have been in the bag to make the game possible?
+
+Again consider the example games from earlier:
+
+```
+Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
+```
+
+* In game 1, the game could have been played with as few as `4 red, 2 green, and 6 blue cubes`. If any color had even one fewer cube, the game would have been impossible.
+* Game 2 could have been played with a minimum of `1 red, 3 green, and 4 blue cubes.`
+* Game 3 must have been played with at least `20 red, 13 green, and 6 blue cubes`.
+* Game 4 required at least `14 red, 3 green, and 15 blue cubes`.
+* Game 5 needed no fewer than `6 red, 3 green, and 2 blue cubes` in the bag.
+
+The power of a set of cubes is equal to the numbers of red, green, and blue cubes multiplied together. The power of the minimum set of cubes in game 1 is 48. In games 2-5 it was 12, 1560, 630, and 36, respectively. Adding up these five powers produces the sum 2286.
+
+For each game, find the minimum set of cubes that must have been present. What is the sum of the power of these sets?
+
+```elixir
+practice_input = [
+  "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green",
+  "Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue",
+  "Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red",
+  "Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red",
+  "Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green"
+]
+
+puzzle_input = Utilities.read_data(2) |> Utilities.to_list()
+```
+
+#### Data Munging
+
+* Use regex to pull out the values into a map
+* `%{id: 1, sets: [%{blue: 3, red: 4}, %{red: 1, green: 2, blue: 6}, %{green: 2}]}`
+
+#### Calculation
+
+* for each game
+  * for each set
+    * for each color
+    * does the number viololate the maximums that we have?
+
+```elixir
+defmodule DayTwo do
+  @maximums %{"red" => 12, "green" => 13, "blue" => 14}
+
+  def possible?(set) do
+    Enum.reduce_while(set, true, fn colour_map, possible? ->
+      case Map.keys(colour_map) do
+        ["red"] ->
+          if String.to_integer(colour_map["red"]) > @maximums["red"] do
+            IO.inspect("violated")
+            {:halt, false}
+          else
+            {:cont, possible?}
+          end
+
+        ["blue"] ->
+          if String.to_integer(colour_map["blue"]) > @maximums["blue"] do
+            IO.inspect("violated")
+            {:halt, false}
+          else
+            {:cont, possible?}
+          end
+
+        ["green"] ->
+          if String.to_integer(colour_map["green"]) > @maximums["green"] do
+            IO.inspect("violated")
+            {:halt, false}
+          else
+            {:cont, possible?}
+          end
+
+        _ ->
+          {:cont, possible?}
+      end
+    end)
+  end
+
+  def part_one(puzzle_input) do
+    Enum.reduce(puzzle_input, 0, fn game, acc ->
+      [game_id | sets] = game |> String.split(":")
+      game_id = String.replace(game_id, "Game ", "")
+
+      sets =
+        sets
+        |> List.to_string()
+        |> String.split(";")
+        |> Enum.map(&create_data_structure/1)
+
+      is_possible =
+        Enum.reduce_while(sets, true, fn set, possible ->
+          if possible?(set) do
+            {:cont, possible}
+          else
+            {:halt, false}
+          end
+        end)
+
+      if is_possible do
+        acc + String.to_integer(game_id)
+      else
+        acc
+      end
+    end)
+  end
+
+  def get_largest_cube_nums(set, acc_cube_number) do
+    Enum.reduce(set, acc_cube_number, fn colour_map, acc ->
+      case Map.keys(colour_map) do
+        ["red"] ->
+          if String.to_integer(colour_map["red"]) > acc.red do
+            %{acc | red: String.to_integer(colour_map["red"])}
+          else
+            acc
+          end
+
+        ["blue"] ->
+          if String.to_integer(colour_map["blue"]) > acc.blue do
+            %{acc | blue: String.to_integer(colour_map["blue"])}
+          else
+            acc
+          end
+
+        ["green"] ->
+          if String.to_integer(colour_map["green"]) > acc.green do
+            %{acc | green: String.to_integer(colour_map["green"])}
+          else
+            acc
+          end
+      end
+    end)
+  end
+
+  def part_two(puzzle_input) do
+    Enum.reduce(puzzle_input, 0, fn game, acc ->
+      [game_id | sets] = game |> String.split(":")
+
+      sets =
+        sets
+        |> List.to_string()
+        |> String.split(";")
+        |> Enum.map(&create_data_structure/1)
+
+      largest_number_of_cubes =
+        Enum.reduce(sets, %{blue: 0, red: 0, green: 0}, fn set, acc_cube_number ->
+          get_largest_cube_nums(set, acc_cube_number)
+        end)
+
+      %{blue: blue, red: red, green: green} = largest_number_of_cubes
+      power = blue * red * green
+      acc + power
+    end)
+  end
+
+  def create_data_structure(set) do
+    scans = Regex.scan(~r/(\d+)\s+(blue|green|red)/, set)
+    pull_out_scans(scans, [])
+  end
+
+  def pull_out_scans([], result) do
+    result
+  end
+
+  def pull_out_scans(scans, result) do
+    [[_, number, colour] | rest] = scans
+    pull_out_scans(rest, [%{colour => number} | result])
+  end
+end
+```
+
+```elixir
+DayTwo.part_two(puzzle_input)
+```
