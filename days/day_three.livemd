@@ -1,0 +1,310 @@
+# Day Three
+
+## Utilities
+
+```elixir
+defmodule Utilities do
+  @moduledoc """
+  Provides utility functions to be used across days
+  """
+
+  def read_data(day) do
+    day_as_string =
+      day
+      |> Integer.to_string()
+      |> String.pad_leading(2, "0")
+
+    Path.join(__DIR__, "../data/day_#{day_as_string}_input.txt")
+    |> Path.expand()
+    |> File.read!()
+  end
+
+  def to_list(big_string) do
+    String.split(big_string, "\n")
+  end
+end
+```
+
+### Day 3: Gear Ratios
+
+You and the Elf eventually reach a gondola lift station; he says the gondola lift will take you up to the water source, but this is as far as he can bring you. You go inside.
+
+It doesn't take long to find the gondolas, but there seems to be a problem: they're not moving.
+
+"Aaah!"
+
+You turn around to see a slightly-greasy Elf with a wrench and a look of surprise. "Sorry, I wasn't expecting anyone! The gondola lift isn't working right now; it'll still be a while before I can fix it." You offer to help.
+
+The engineer explains that an engine part seems to be missing from the engine, but nobody can figure out which one. If you can add up all the part numbers in the engine schematic, it should be easy to work out which part is missing.
+
+The engine schematic (your puzzle input) consists of a visual representation of the engine. There are lots of numbers and symbols you don't really understand, but apparently any number adjacent to a symbol, even diagonally, is a "part number" and should be included in your sum. (Periods (.) do not count as a symbol.)
+
+Here is an example engine schematic:
+
+```
+467..114..
+...*......
+..35..633.
+......#...
+617*......
+.....+.58.
+..592.....
+......755.
+...$.*....
+.664.598..
+```
+
+In this schematic, two numbers are not part numbers because they are not adjacent to a symbol: 114 (top right) and 58 (middle right). Every other number is adjacent to a symbol and so is a part number; their sum is 4361.
+
+Of course, the actual engine schematic is much larger. What is the sum of all of the part numbers in the engine schematic?
+
+<!-- livebook:{"break_markdown":true} -->
+
+### Part Two
+
+The engineer finds the missing part and installs it in the engine! As the engine springs to life, you jump in the closest gondola, finally ready to ascend to the water source.
+
+You don't seem to be going very fast, though. Maybe something is still wrong? Fortunately, the gondola has a phone labeled "help", so you pick it up and the engineer answers.
+
+Before you can explain the situation, she suggests that you look out the window. There stands the engineer, holding a phone in one hand and waving with the other. You're going so slowly that you haven't even left the station. You exit the gondola.
+
+The missing part wasn't the only issue - one of the gears in the engine is wrong. A gear is any * symbol that is adjacent to exactly two part numbers. Its gear ratio is the result of multiplying those two numbers together.
+
+This time, you need to find the gear ratio of every gear and add them all up so that the engineer can figure out which gear needs to be replaced.
+
+Consider the same engine schematic again:
+
+```
+467..114..
+...*......
+..35..633.
+......#...
+617*......
+.....+.58.
+..592.....
+......755.
+...$.*....
+.664.598..
+```
+
+In this schematic, there are two gears. The first is in the top left; it has part numbers 467 and 35, so its gear ratio is 16345. The second gear is in the lower right; its gear ratio is 451490. (The * adjacent to 617 is not a gear because it is only adjacent to one part number.) Adding up all of the gear ratios produces 467835.
+
+What is the sum of all of the gear ratios in your engine schematic?
+
+```elixir
+puzzle_input = Utilities.read_data(3) |> Utilities.to_list()
+
+practice_input = [
+  "467..114..",
+  "...*......",
+  "..35..633.",
+  "......#...",
+  "617*......",
+  ".....+.58.",
+  "..592.....",
+  "......755.",
+  "...$.*....",
+  ".664.598.."
+]
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule DayThree do
+  ### find the numbers, like the actual values
+  ### find all the cells around them
+  ### if they contain a symbol, add them to total
+  @numbers ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+  @numbers_and_dot ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "."]
+
+  def part_one(puzzle_input) do
+    grid = parse_grid(puzzle_input)
+
+    numbers_indicies = get_numbers_and_indicies(grid)
+    symbol_indicies = get_symbol_indicies(grid)
+
+    add_relevant_numbers(numbers_indicies, symbol_indicies)
+  end
+
+  def part_two(puzzle_input) do
+    grid = parse_grid(puzzle_input)
+    numbers_indicies = get_numbers_and_indicies(grid)
+    star_indicies = get_star_indicies(grid)
+
+    find_and_add_star_numbers(numbers_indicies, star_indicies)
+  end
+
+  def find_and_add_star_numbers(number_indicies, star_indicies) do
+    Enum.reduce(star_indicies, 0, fn star, acc ->
+      numbers = get_star_numbers(star, number_indicies)
+
+      if Enum.count(numbers) == 2 do
+        IO.inspect("doing the calculation on #{numbers}")
+        [number_one, number_two] = numbers
+        number_one * number_two + acc
+      else
+        IO.inspect("not doing the caluculation on #{numbers}")
+        acc
+      end
+    end)
+  end
+
+  # star: [%{indicies: [{2, 0}, {2, 1}, {2, 2}, {4, 0}, {4, 1}, {4, 2}, {3, 0}, {3, 2}]}]
+  # return the list of numbers the star touches
+  defp get_star_numbers(star, number_indicies) do
+    Enum.reduce(number_indicies, [], fn %{number: number, indicies: indicies}, acc ->
+      if number_index_touching_symbol?(indicies, star.indicies) do
+        acc ++ [number]
+      else
+        acc
+      end
+    end)
+  end
+
+  defp number_index_touching_symbol?(indicies, symbol_indicies) do
+    Enum.any?(indicies, fn index ->
+      index in symbol_indicies
+    end)
+  end
+
+  defp add_relevant_numbers(number_indicies, symbol_indicies) do
+    Enum.reduce(number_indicies, 0, fn %{number: number, indicies: indicies}, acc ->
+      if number_index_touching_symbol?(indicies, symbol_indicies) do
+        acc + number
+      else
+        acc
+      end
+    end)
+  end
+
+  def get_star_indicies(puzzle_input) do
+    puzzle_input
+    |> Enum.with_index()
+    |> Enum.map(fn {row, y} ->
+      Enum.with_index(row)
+      |> Enum.reduce([], fn {cell, x}, all_cells ->
+        cond do
+          # star symbol
+          cell == "*" ->
+            indexes_to_add = [
+              {x - 1, y - 1},
+              {x - 1, y},
+              {x - 1, y + 1},
+              {x + 1, y - 1},
+              {x + 1, y},
+              {x + 1, y + 1},
+              {x, y - 1},
+              {x, y + 1}
+            ]
+
+            [%{indicies: indexes_to_add}] ++ all_cells
+
+          # number or dot
+          true ->
+            all_cells
+        end
+      end)
+    end)
+    |> Enum.filter(&(&1 != []))
+    |> Enum.flat_map(& &1)
+  end
+
+  defp get_symbol_indicies(puzzle_input) do
+    puzzle_input
+    |> Enum.with_index()
+    |> Enum.map(fn {row, y} ->
+      Enum.with_index(row)
+      |> Enum.reduce({nil, []}, fn {cell, x}, {current_cell, all_cells} ->
+        cond do
+          # number
+          cell not in @numbers_and_dot ->
+            indexes_to_add = [
+              {x - 1, y - 1},
+              {x - 1, y},
+              {x - 1, y + 1},
+              {x + 1, y - 1},
+              {x + 1, y},
+              {x + 1, y + 1},
+              {x, y - 1},
+              {x, y + 1}
+            ]
+
+            if is_nil(current_cell) do
+              {%{indicies: indexes_to_add}, all_cells}
+            else
+              new = Map.put(current_cell, :indicies, current_cell[:indicies] ++ indexes_to_add)
+
+              {new, all_cells}
+            end
+
+          # number or dot
+          true ->
+            if is_nil(current_cell) do
+              {current_cell, all_cells}
+            else
+              {nil, [current_cell] ++ all_cells}
+            end
+        end
+      end)
+    end)
+    |> Enum.flat_map(&flatten(&1))
+    |> Enum.flat_map(fn %{indicies: indicies} ->
+      indicies
+    end)
+  end
+
+  def get_numbers_and_indicies(puzzle_input) do
+    puzzle_input
+    |> Enum.with_index()
+    |> Enum.map(fn {row, y} ->
+      Enum.with_index(row)
+      |> Enum.reduce({nil, []}, fn {cell, x}, {current_cell, all_cells} ->
+        cond do
+          # number
+          cell in @numbers ->
+            index_to_add = {x, y}
+
+            if is_nil(current_cell) do
+              {%{number: cell, indicies: [index_to_add]}, all_cells}
+            else
+              new =
+                Map.put(current_cell, :number, current_cell[:number] <> cell)
+                |> Map.put(:indicies, current_cell[:indicies] ++ [index_to_add])
+
+              {new, all_cells}
+            end
+
+          # symbol or dot
+          true ->
+            if is_nil(current_cell) do
+              {current_cell, all_cells}
+            else
+              {nil, [current_cell] ++ all_cells}
+            end
+        end
+      end)
+    end)
+    |> Enum.flat_map(&flatten(&1))
+    |> Enum.map(fn %{number: number, indicies: indicies} ->
+      %{number: String.to_integer(number), indicies: indicies}
+    end)
+  end
+
+  defp flatten({nil, list}) do
+    list
+  end
+
+  defp flatten({extra, list}) do
+    list ++ [extra]
+  end
+
+  defp parse_grid(grid), do: Enum.map(grid, &String.graphemes(&1))
+end
+```
+
+```elixir
+DayThree.part_two(puzzle_input)
+```
+
+
